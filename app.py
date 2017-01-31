@@ -16,12 +16,9 @@ class User(db.Model):
 	id = db.Column(db.Integer, primary_key=True, autoincrement=True)
 	name = db.Column(db.String(64))
 	email = db.Column(db.String(64))
-	password = db.Column(db.String(64))
-
-	def __init__(self, name=None, email=None, password=None):
+	def __init__(self, name=None, email=None):
 		self.name = name
 		self.email = email
-		self.password = password
 
 class Message(db.Model):
 	__tablename__ = 'messages'
@@ -29,6 +26,7 @@ class Message(db.Model):
 	sender = db.Column(db.String(64))
 	receiver = db.Column(db.String(64))
 	text = db.Column(db.String(256))
+	#TODO: Add time stamp
 	delivered = db.Column(db.Integer)
 
 	def __init__(self, sender=None, receiver=None, text=None, delivered=None):
@@ -37,10 +35,31 @@ class Message(db.Model):
 		self.text = text
 		self.delivered = delivered
 
+#Util
+def validate_user_email(email_address):
+	user = User.query.filter(User.email == email_address).first()
+	if user != None:
+		return True
+	else:
+		return False
+
+def validate_sender_and_receiver(sender_email, receiver_email):
+	sender_valid = validate_user_email(sender_email)
+	receiver_valid = validate_user_email(receiver_email)
+	if sender_valid and receiver_valid:
+		return None
+	elif sender_valid and not receiver_valid:
+		return json.dumps({"status":"Error","message":receiver_email + " is not registered to chat!"})
+	elif not sender_valid and receiver_valid:
+		return json.dumps({"status":"Error","message":sender_email + " is not registered to chat!"})
+	else:
+		return json.dumps({"status":"Error","message":sender_email + " and " + receiver_email + " are not registered to chat!"})
+
 #Routes
 @app.route('/users', methods = ['POST', 'GET'])
 def api_user():
 	if request.method == 'POST':
+		#TODO: Check json correct format
 		return add_user(request)
 	if request.method == 'GET':
 		return query_all_users(request)
@@ -54,43 +73,61 @@ def api_message():
 
 #Controller
 def add_user(request):
-	user = User.query.filter(User.email == request.json['email']).first()
-	if user != None:
-		return "User with this email address already exists!\n"
+	if validate_user_email(request.json['email']):
+		return json.dumps({"status":"Error","message":"User with this email address already exists!"})
+	if len(request.json['email']) > 64 or len(request.json['name']) > 64:
+		return json.dumps({"status":"Error","message":"Email and name cannot be more than 64 chars each!"})
 	else:
 		user = User(request.json['name'], request.json['email'])
 		db.session.add(user)
 		db.session.commit()
-		return "Congrats, " + request.json['name'] + "! You're now ready to chat!\n"
+		return json.dumps({"status":"Success","message":"Congrats, " + request.json['name'] + "! You're now ready to chat!"})
 
 def query_all_users(request):
 	all_users = User.query.all()
-	people_to_chat_with = "Here are some people you can chat with:\n"
+	people_to_chat_with = []
 	for user in all_users:
-		user = user.name + " (" + user.email + ")\n"
-		people_to_chat_with += user
-	return people_to_chat_with
+		user = {"name":user.name,"email":user.email}
+		people_to_chat_with.append(user)
+	if len(people_to_chat_with) != 0:
+		return json.dumps(people_to_chat_with)
+	else:
+		return json.dumps({"status":"Error","message":"There is nobody to chat with yet!"})
 
 def post_message(request):
-	message = Message(request.json['from'], request.json['to'], request.json['message'], 0)
-	db.session.add(message)
-	db.session.commit()
-	sender_name = User.query.filter(User.email == request.json['from']).first()
-	return sender_name.name + ": " + request.json['message'] + "\n"
+	validation_error = validate_sender_and_receiver(request.json['sender'], request.json['receiver'])
+	if validation_error == None:
+		if len(request.json['text']) > 256:
+			return json.dumps({"status":"Error","message":"Message is too long to send!"})
+		else:
+			message = Message(request.json['sender'], request.json['receiver'], request.json['text'], 0)
+			db.session.add(message)
+			db.session.commit()
+			sender = User.query.filter(User.email == request.json['sender']).first()
+			return json.dumps({"name":sender.name,"text":request.json['text']})
+	else:
+		return validation_error
 
 def get_message(request):
-	messages = Message.query.filter(Message.sender == request.json['from'] and Message.receiver == request.json['to'] and Message.delivered == 0).all()
-	sender_name = User.query.filter(User.email == request.json['from']).first()
-	unread_messages = ""
-	for message in messages:
-		if message.delivered != 1:
-			unread_messages += sender_name.name + ": " + message.text + "\n"
-			message.delivered = 1
-	db.session.commit()
-	return unread_messages	
+	validation_error = validate_sender_and_receiver(request.json['sender'], request.json['receiver'])
+	if validation_error == None:
+		messages = Message.query.filter(Message.sender == request.json['sender'] and Message.receiver == request.json['receiver'] and Message.delivered == 0).all()
+		sender = User.query.filter(User.email == request.json['sender']).first()
+		unread_messages = []
+		for message in messages:
+			if message.delivered != 1:
+				unread_messages.append({"name":sender.name,"text":message.text})
+				message.delivered = 1
+		db.session.commit()
+		return json.dumps(unread_messages)	
+	else:
+		return validation_error
 
 if __name__ == '__main__':
 	db.create_all()
 	port = int(os.environ.get("PORT", 5000))
 	app.run(host='0.0.0.0', port=port)
+
+
+
 
