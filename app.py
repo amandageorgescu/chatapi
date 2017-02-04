@@ -90,7 +90,7 @@ def query_all_users(request):
 		user = {"name":user.name,"email":user.email}
 		people_to_chat_with.append(user)
 	if len(people_to_chat_with) != 0:
-		return json.dumps(people_to_chat_with)
+		return json.dumps({"status":"Success","Users":people_to_chat_with})
 	else:
 		return json.dumps({"status":"Error","message":"There is nobody to chat with yet!"})
 
@@ -104,7 +104,7 @@ def post_message(request):
 			db.session.add(message)
 			db.session.commit()
 			sender = User.query.filter(User.email == request.json['sender']).first()
-			return json.dumps({"name":sender.name,"text":request.json['text']})
+			return json.dumps({"status":"Success","message":{"name":sender.name,"text":request.json['text']}})
 	else:
 		return validation_error
 

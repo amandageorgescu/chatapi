@@ -86,7 +86,7 @@ class Test(TestCase):
 		db.session.add(user2)
 		db.session.commit()
 		response = self.client.get('/users')
-		self.assertEqual(json.loads(response.data), [{"name":"Bob","email":"bob@gmail.com"},{"name":"Amanda Georgescu","email":"georgescu.amanda@gmail.com"}])
+		self.assertEqual(json.loads(response.data).items(), {"status":"Success","Users":[{"name":"Bob","email":"bob@gmail.com"},{"name":"Amanda Georgescu","email":"georgescu.amanda@gmail.com"}]}.items())
 
 	def test_query_all_users_empty(self):
 		response = self.client.get('/users')
@@ -112,7 +112,7 @@ class Test(TestCase):
 		db.session.add(user2)
 		db.session.commit()
 		response = self.client.post('/messages', data='{"sender":"georgescu.amanda@gmail.com","receiver":"bob@gmail.com","text":"Hey Bob"}', content_type='application/json')
-		self.assertEqual(json.loads(response.data).items(), {"name":"Amanda Georgescu","text":"Hey Bob"}.items())
+		self.assertEqual(json.loads(response.data).items(), {"status":"Success","message":{"name":"Amanda Georgescu","text":"Hey Bob"}}.items())
 
 	def test_get_message_validation_error(self):
 		response = self.client.get('/messages', data='{"sender":"georgescu.amanda@gmail.com","receiver":"bob@gmail.com"}', content_type='application/json')
@@ -139,6 +139,7 @@ class Test(TestCase):
 		self.assertEqual(json.loads(response.data), [{"name":"Amanda Georgescu","text":"Hey Bob"}])
 		response = self.client.get('/messages', data='{"sender":"georgescu.amanda@gmail.com","receiver":"bob@gmail.com"}', content_type='application/json')
 		self.assertEqual(json.loads(response.data), [])
+
 
 
 if __name__ == '__main__':
