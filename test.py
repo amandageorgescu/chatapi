@@ -3,20 +3,19 @@
 import flask
 import flask_sqlalchemy
 import app
-from app import app, db
-from app import json
+from app import db
+from flask import json
 from flask_testing import TestCase
 import unittest
 
 class Test(TestCase):
 
 	def create_app(self):
-		app.config['TESTING'] = True
-		app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/test.db'
-		db = flask_sqlalchemy.SQLAlchemy(app)
-		self.app = app.test_client()
+		app.app.config['TESTING'] = True
+		app.app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/test.db'
+		db = flask_sqlalchemy.SQLAlchemy(app.app)
 		self.baseURL = 'https://protected-beyond-84593.herokuapp.com'
-		return self.app
+		return app.app
 
 	def setUp(self):
 		db.create_all()
@@ -70,11 +69,14 @@ class Test(TestCase):
 		db.session.add(user)
 		db.session.commit()
 		response = self.client.post('/users', data='{"name":"Bob","email":"bob@gmail.com"}', content_type='application/json')
-		self.assertEqual(response, {"status":"Error","message":"User with this email address already exists!"})
+		self.assertEqual(json.loads(response.data).items(), {"status":"Error","message":"User with this email address already exists!"}.items())
 
-
-
-
+	def test_add_user_name_too_long(self):
+		user = app.User("Bobrjhfjrkhjrhjhrtjhrjthjrhtjrehtjhrjthrejhtjrehtjhrejtkhrejkhtjkrhtjherjkthjkerhtjkerhtjk","bob@gmail.com")
+		db.session.add(user)
+		db.session.commit()
+		response = self.client.post('/users', data='{"name":"Bob","email":"bob@gmail.com"}', content_type='application/json')
+		self.assertEqual(json.loads(response.data).items(), {"status":"Error","message":"Email and name cannot be more than 64 chars each!"}.items())
 
 if __name__ == '__main__':
     unittest.main()
