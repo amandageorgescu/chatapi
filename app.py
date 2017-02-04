@@ -3,7 +3,7 @@
 import flask
 import flask_sqlalchemy
 import hashlib
-import os
+import app
 from flask import request, json
 
 app = flask.Flask(__name__)
@@ -36,7 +36,7 @@ class Message(db.Model):
 		self.delivered = delivered
 
 #Util
-def validate_user_email(email_address):
+def validate_user_exists(email_address):
 	user = User.query.filter(User.email == email_address).first()
 	if user != None:
 		return True
@@ -44,8 +44,8 @@ def validate_user_email(email_address):
 		return False
 
 def validate_sender_and_receiver(sender_email, receiver_email):
-	sender_valid = validate_user_email(sender_email)
-	receiver_valid = validate_user_email(receiver_email)
+	sender_valid = validate_user_exists(sender_email)
+	receiver_valid = validate_user_exists(receiver_email)
 	if sender_valid and receiver_valid:
 		return None
 	elif sender_valid and not receiver_valid:
@@ -59,7 +59,6 @@ def validate_sender_and_receiver(sender_email, receiver_email):
 @app.route('/users', methods = ['POST', 'GET'])
 def api_user():
 	if request.method == 'POST':
-		#TODO: Check json correct format
 		return add_user(request)
 	if request.method == 'GET':
 		return query_all_users(request)
@@ -73,12 +72,12 @@ def api_message():
 
 #Controller
 def add_user(request):
-	if validate_user_email(request.json['email']):
+	if validate_user_exists(request.json['email']):
 		return json.dumps({"status":"Error","message":"User with this email address already exists!"})
-	if len(request.json['email']) > 64 or len(request.json['name']) > 64:
+	elif len(request.json['email']) > 64 or len(request.json['name']) > 64:
 		return json.dumps({"status":"Error","message":"Email and name cannot be more than 64 chars each!"})
 	else:
-		user = User(request.json['name'], request.json['email'])
+		user = User(request.json['name'], request.json['email'].lower())
 		db.session.add(user)
 		db.session.commit()
 		return json.dumps({"status":"Success","message":"Congrats, " + request.json['name'] + "! You're now ready to chat!"})
