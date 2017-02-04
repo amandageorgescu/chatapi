@@ -38,7 +38,7 @@ class Message(db.Model):
 
 #Util
 def validate_user_exists(email_address):
-	user = User.query.filter(User.email == email_address).first()
+	user = User.query.filter(User.email == email_address.lower()).first()
 	if user != None:
 		return True
 	else:
