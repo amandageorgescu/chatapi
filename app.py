@@ -4,6 +4,7 @@ import flask
 import flask_sqlalchemy
 import hashlib
 import app
+import os
 from flask import request, json
 
 app = flask.Flask(__name__)
