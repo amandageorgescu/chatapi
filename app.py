@@ -5,6 +5,7 @@ import flask_sqlalchemy
 import hashlib
 import app
 import os
+import datetime
 from flask import request, json
 
 app = flask.Flask(__name__)
@@ -27,13 +28,14 @@ class Message(db.Model):
 	sender = db.Column(db.String(64))
 	receiver = db.Column(db.String(64))
 	text = db.Column(db.String(256))
-	#TODO: Add time stamp
+	time = db.Column(db.DateTime)
 	delivered = db.Column(db.Integer)
 
-	def __init__(self, sender=None, receiver=None, text=None, delivered=None):
+	def __init__(self, sender=None, receiver=None, text=None, time=None, delivered=None):
 		self.sender = sender
 		self.receiver = receiver
 		self.text = text
+		self.time = time
 		self.delivered = delivered
 
 #Util
@@ -100,11 +102,12 @@ def post_message(request):
 		if len(request.json['text']) > 256:
 			return json.dumps({"status":"Error","message":"Message is too long to send!"})
 		else:
-			message = Message(request.json['sender'], request.json['receiver'], request.json['text'], 0)
+			time = datetime.datetime.now()
+			message = Message(request.json['sender'], request.json['receiver'], request.json['text'], time, 0)
 			db.session.add(message)
 			db.session.commit()
 			sender = User.query.filter(User.email == request.json['sender']).first()
-			return json.dumps({"status":"Success","message":{"name":sender.name,"text":request.json['text']}})
+			return json.dumps({"status":"Success","message":{"time":time,"name":sender.name,"text":request.json['text']}})
 	else:
 		return validation_error
 
@@ -116,9 +119,10 @@ def get_message(request):
 		unread_messages = []
 		for message in messages:
 			if message.delivered != 1:
-				unread_messages.append({"name":sender.name,"text":message.text})
+				unread_messages.append({"time":message.time,"name":sender.name,"text":message.text})
 				message.delivered = 1
 		db.session.commit()
+		unread_messages.sort(key=lambda x: x["time"])
 		return json.dumps(unread_messages)	
 	else:
 		return validation_error

@@ -112,7 +112,9 @@ class Test(TestCase):
 		db.session.add(user2)
 		db.session.commit()
 		response = self.client.post('/messages', data='{"sender":"georgescu.amanda@gmail.com","receiver":"bob@gmail.com","text":"Hey Bob"}', content_type='application/json')
-		self.assertEqual(json.loads(response.data).items(), {"status":"Success","message":{"name":"Amanda Georgescu","text":"Hey Bob"}}.items())
+		self.assertEqual(json.loads(response.data)["status"], "Success")
+		self.assertEqual(json.loads(response.data)["message"]["name"], "Amanda Georgescu")
+		self.assertEqual(json.loads(response.data)["message"]["text"], "Hey Bob")
 
 	def test_get_message_validation_error(self):
 		response = self.client.get('/messages', data='{"sender":"georgescu.amanda@gmail.com","receiver":"bob@gmail.com"}', content_type='application/json')
@@ -136,11 +138,22 @@ class Test(TestCase):
 		db.session.add(message)
 		db.session.commit()
 		response = self.client.get('/messages', data='{"sender":"georgescu.amanda@gmail.com","receiver":"bob@gmail.com"}', content_type='application/json')
-		self.assertEqual(json.loads(response.data), [{"name":"Amanda Georgescu","text":"Hey Bob"}])
+		self.assertEqual(json.loads(response.data)[0]["name"], "Amanda Georgescu")
+		self.assertEqual(json.loads(response.data)[0]["text"], "Hey Bob")
 		response = self.client.get('/messages', data='{"sender":"georgescu.amanda@gmail.com","receiver":"bob@gmail.com"}', content_type='application/json')
 		self.assertEqual(json.loads(response.data), [])
 
-
+	def test_get_message_correct_order(self):
+		user1 = app.User("Bob","bob@gmail.com")
+		db.session.add(user1)
+		user2 = app.User("Amanda Georgescu","georgescu.amanda@gmail.com")
+		db.session.add(user2)
+		db.session.commit()
+		self.client.post('/messages', data='{"sender":"georgescu.amanda@gmail.com","receiver":"bob@gmail.com","text":"Hey Bob"}', content_type='application/json')
+		self.client.post('/messages', data='{"sender":"georgescu.amanda@gmail.com","receiver":"bob@gmail.com","text":"How are you?"}', content_type='application/json')
+		response = self.client.get('/messages', data='{"sender":"georgescu.amanda@gmail.com","receiver":"bob@gmail.com"}', content_type='application/json')
+		self.assertEqual(json.loads(response.data)[0]["text"], "Hey Bob")
+		self.assertEqual(json.loads(response.data)[1]["text"], "How are you?")
 
 if __name__ == '__main__':
     unittest.main()
